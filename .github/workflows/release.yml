@@ -1,0 +1,47 @@
+name: Release Windows package
+on:
+  push:
+    tags:
+      - 'v*'
+permissions:
+  contents: write
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.402
+      - name: Publish self-contained Windows applications
+        shell: pwsh
+        run: |
+          dotnet publish src/Asterion.Desktop/Asterion.Desktop.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --output dist/package/Asterion.Desktop
+          dotnet publish src/Asterion.McpServer/Asterion.McpServer.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --output dist/package/Asterion.McpServer
+          Copy-Item README.md dist/package/README.md
+          Copy-Item RELEASE_NOTES.md dist/package/RELEASE_NOTES.md
+          $config = @'
+          {
+            "mcpServers": {
+              "asterion-observatory": {
+                "command": "C:\\Path\\To\\Asterion.McpServer\\Asterion.McpServer.exe"
+              }
+            }
+          }
+          '@
+          $config | Set-Content dist/package/mcp-config.example.json -Encoding utf8
+          New-Item -ItemType Directory -Force dist/package/vendor/asi | Out-Null
+          Copy-Item vendor/asi/LICENSE.txt dist/package/vendor/asi/LICENSE.txt
+          Copy-Item vendor/asi/NOTICE.md dist/package/vendor/asi/NOTICE.md
+          $version = $env:GITHUB_REF_NAME
+          $zip = "dist/Asterion-Observatory-$version-win-x64.zip"
+          Compress-Archive -Path dist/package/* -DestinationPath $zip -CompressionLevel Optimal
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $(Split-Path $zip -Leaf)" | Set-Content "${zip}.sha256" -Encoding ascii
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = Get-ChildItem dist -File | Where-Object { $_.Extension -in @(".zip", ".sha256") } | ForEach-Object FullName
+          gh release create $env:GITHUB_REF_NAME @assets --title "Asterion Observatory $env:GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md --prerelease --verify-tag

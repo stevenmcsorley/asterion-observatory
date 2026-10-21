@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net9.0-windows</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><UseWPF>true</UseWPF><RootNamespace>Asterion.Desktop</RootNamespace><AssemblyName>Asterion.Desktop</AssemblyName></PropertyGroup>
+  <PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net10.0-windows</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><UseWPF>true</UseWPF><RootNamespace>Asterion.Desktop</RootNamespace><AssemblyName>Asterion.Desktop</AssemblyName></PropertyGroup>
   <ItemGroup><ProjectReference Include="..\Asterion.Core\Asterion.Core.csproj" /><ProjectReference Include="..\Asterion.Zwo\Asterion.Zwo.csproj" /></ItemGroup>
   <ItemGroup><Content Include="..\..\vendor\asi\x64\ASICamera2.dll" Link="ASICamera2.dll" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>
