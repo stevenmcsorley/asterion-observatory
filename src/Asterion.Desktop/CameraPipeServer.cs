@@ -61,6 +61,9 @@ internal sealed class CameraPipeServer(ICameraSession session)
             case "get_camera_status":
                 return PipeResponse.Ok(session.GetStatus());
 
+            case "get_camera_capabilities":
+                return PipeResponse.Ok(await session.GetCapabilitiesAsync(cancellationToken));
+
             case "connect_camera":
                 await session.ConnectAsync(RequiredString(request.Arguments, "cameraId"), cancellationToken);
                 return PipeResponse.Ok(session.GetStatus());

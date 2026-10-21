@@ -4,7 +4,7 @@ A Windows astronomy imaging app for ZWO ASI cameras, with camera control exposed
 
 ## Current status
 
-The initial implementation includes a WPF desktop shell, direct ZWO ASI SDK discovery/connect/preview-frame/snapshot support, and a local stdio MCP server bridged to the desktop through a same-user named pipe. Video recording, a continuous desktop preview, and astronomy catalog/plate-solving integrations remain future work. Hardware operation has not yet been validated against the attached camera in this environment.
+The initial implementation includes a WPF desktop with continuous preview, live exposure/gain controls, saved snapshots, image quality metrics (brightness, clipping, focus heuristic, and bright-point candidates), and a local stdio MCP server bridged to the desktop through a same-user named pipe. MCP can propose a bounded exposure/gain adjustment without applying it; the vision-capable client inspects returned frames and can request a follow-up still. Video recording and astronomy catalog/plate-solving integrations remain future work. Hardware operation has not yet been validated against the attached camera in this environment.
 
 ## Projects
 

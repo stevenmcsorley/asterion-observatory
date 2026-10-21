@@ -16,6 +16,25 @@ public sealed class CameraTools(CameraPipeClient camera)
     public Task<CameraStatus> GetCameraStatus(CancellationToken cancellationToken) =>
         camera.CallAsync<CameraStatus>("get_camera_status", null, cancellationToken);
 
+    [McpServerTool, Description("Suggest a bounded exposure/gain adjustment from live frame brightness and highlight clipping. This reports a proposal without changing the camera.")]
+    public async Task<ExposureSuggestion> SuggestCameraSettings(CancellationToken cancellationToken)
+    {
+        var frame = await camera.CallAsync<ImageFrame>("get_preview_frame", null, cancellationToken);
+        var status = await camera.CallAsync<CameraStatus>("get_camera_status", null, cancellationToken);
+        var caps = await camera.CallAsync<CameraCapabilities>("get_camera_capabilities", null, cancellationToken);
+        var current = status.Settings ?? throw new InvalidOperationException("Connect a camera first.");
+        var m = frame.Metrics ?? throw new InvalidOperationException("The backend did not return image metrics.");
+        var factor = m.ClippedPixelFraction > 0.03 || m.MeanLuminance > 90 ? 0.67 : m.MeanLuminance < 18 ? 1.5 : 1.0;
+        var exposure = Math.Clamp(current.ExposureMilliseconds * factor, caps.ExposureMilliseconds.Minimum, caps.ExposureMilliseconds.Maximum);
+        var gain = current.Gain;
+        if (factor > 1 && exposure >= caps.ExposureMilliseconds.Maximum * 0.98)
+            gain = Math.Min(caps.Gain.Maximum, gain + Math.Max(caps.Gain.Step, 5));
+        if (factor < 1 && exposure <= caps.ExposureMilliseconds.Minimum * 1.02)
+            gain = Math.Max(caps.Gain.Minimum, gain - Math.Max(caps.Gain.Step, 5));
+        var reason = factor > 1 ? "The sampled frame is dark; this proposal raises exposure conservatively." : factor < 1 ? "The sampled frame is bright or has clipped highlights; this proposal lowers exposure." : "The frame brightness is within the current target band; no change is suggested.";
+        return new(current, current with { ExposureMilliseconds = exposure, Gain = gain }, reason, m);
+    }
+
     [McpServerTool, Description("Connect Asterion to a camera by the exact ID returned from list_cameras.")]
     public Task<CameraStatus> ConnectCamera(
         [Description("Exact camera ID returned by list_cameras.")] string cameraId,
@@ -86,8 +105,15 @@ public sealed class CameraTools(CameraPipeClient camera)
     [
         new TextContentBlock
         {
-            Text = $"{description} {frame.Width}x{frame.Height}; {frame.Timestamp:O}; exposure {frame.Settings.ExposureMilliseconds} ms; gain {frame.Settings.Gain}."
+            Text = $"{description} {frame.Width}x{frame.Height}; {frame.Timestamp:O}; exposure {frame.Settings.ExposureMilliseconds} ms; gain {frame.Settings.Gain}. {FormatMetrics(frame.Metrics)} {FormatPath(frame.FilePath)}"
         },
         ImageContentBlock.FromBytes(frame.Data, frame.MimeType)
     ];
+
+    private static string FormatMetrics(ImageMetrics? m) => m is null
+        ? "No image quality metrics available."
+        : $"Sampled image metrics: mean luminance {m.MeanLuminance:0.0}/255, 95th percentile {m.Luminance95thPercentile:0}/255, clipped highlights {m.ClippedPixelFraction:P2}, focus score {m.FocusScore:0.0}, bright point candidates {m.BrightPointCandidates}. These are image heuristics, not object identification. ";
+    private static string FormatPath(string? path) => path is null ? string.Empty : $"Saved locally to {path}.";
 }
+
+public sealed record ExposureSuggestion(CameraSettings Current, CameraSettings Proposed, string Reason, ImageMetrics Metrics);

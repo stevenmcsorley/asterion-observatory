@@ -5,11 +5,6 @@ public sealed class CameraSession(ICameraBackend? backend) : ICameraSession
     private readonly SemaphoreSlim _settingsGate = new(1, 1);
     private bool _disposed;
 
-    public event EventHandler<ImageFrame>? FrameReceived
-    {
-        add { if (backend is not null) backend.FrameReceived += value; }
-        remove { if (backend is not null) backend.FrameReceived -= value; }
-    }
 
     public Task<IReadOnlyList<CameraDescriptor>> EnumerateAsync(CancellationToken cancellationToken) =>
         backend is null
@@ -29,6 +24,9 @@ public sealed class CameraSession(ICameraBackend? backend) : ICameraSession
         backend is null
             ? Task.CompletedTask
             : backend.DisconnectAsync(cancellationToken);
+
+    public Task<CameraCapabilities> GetCapabilitiesAsync(CancellationToken cancellationToken) =>
+        RequireBackend().GetCapabilitiesAsync(cancellationToken);
 
     public Task<ImageFrame> GetPreviewFrameAsync(CancellationToken cancellationToken) =>
         RequireBackend().GetPreviewFrameAsync(cancellationToken);

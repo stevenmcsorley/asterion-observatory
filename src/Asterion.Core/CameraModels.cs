@@ -64,7 +64,16 @@ public sealed record ImageFrame(
     int Width,
     int Height,
     DateTimeOffset Timestamp,
-    CameraSettings Settings);
+    CameraSettings Settings,
+    ImageMetrics? Metrics = null,
+    string? FilePath = null);
+
+public sealed record ImageMetrics(
+    double MeanLuminance,
+    double Luminance95thPercentile,
+    double ClippedPixelFraction,
+    double FocusScore,
+    int BrightPointCandidates);
 
 public sealed record CaptureRequest(
     string TargetName,
@@ -94,7 +103,6 @@ public interface ICameraBackend : IAsyncDisposable
     Task<CaptureResult> CaptureSequenceAsync(CaptureRequest request, CancellationToken cancellationToken);
     Task StopCaptureAsync(CancellationToken cancellationToken);
     CameraStatus GetStatus();
-    event EventHandler<ImageFrame>? FrameReceived;
 }
 
 public interface ICameraSession : IAsyncDisposable
@@ -102,6 +110,7 @@ public interface ICameraSession : IAsyncDisposable
     Task<IReadOnlyList<CameraDescriptor>> EnumerateAsync(CancellationToken cancellationToken);
     Task ConnectAsync(string cameraId, CancellationToken cancellationToken);
     Task DisconnectAsync(CancellationToken cancellationToken);
+    Task<CameraCapabilities> GetCapabilitiesAsync(CancellationToken cancellationToken);
     CameraStatus GetStatus();
     Task<ImageFrame> GetPreviewFrameAsync(CancellationToken cancellationToken);
     Task<CameraSettings> SetSettingsAsync(CameraSettings requested, CancellationToken cancellationToken);

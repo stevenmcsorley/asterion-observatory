@@ -83,7 +83,7 @@
                         <TextBlock Text="Camera preview" FontSize="20" FontWeight="SemiBold" Margin="0,5,0,0" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
-                        <Button Style="{StaticResource ActionButton}" Content="Snapshot" IsEnabled="False" Margin="0,0,8,0" />
+                        <Button x:Name="SnapshotButton" Style="{StaticResource ActionButton}" Content="Save snapshot" IsEnabled="False" Click="SnapshotButton_Click" Margin="0,0,8,0" />
                         <Button Style="{StaticResource ActionButton}" Content="Record" IsEnabled="False" />
                     </StackPanel>
                 </Grid>
@@ -112,7 +112,8 @@
                             <Ellipse Canvas.Left="1000" Canvas.Top="422" Width="2" Height="2" Fill="#C5D7E2" />
                             <Line X1="0" Y1="0" X2="1200" Y2="620" Stroke="#172332" StrokeThickness="1" Opacity="0.22" />
                         </Canvas>
-                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="370">
+                        <Image x:Name="PreviewImage" Stretch="Uniform" Visibility="Collapsed" />
+                        <StackPanel x:Name="PreviewPlaceholder" HorizontalAlignment="Center" VerticalAlignment="Center" Width="370">
                             <Border Width="54" Height="54" CornerRadius="18" BorderBrush="#293847" BorderThickness="1" Background="#111A24" HorizontalAlignment="Center" Margin="0,0,0,18">
                                 <TextBlock Text="◉" FontSize="25" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
@@ -134,7 +135,7 @@
 
                 <Grid Grid.Row="4">
                     <TextBlock x:Name="StatusMessage" Text="Camera support is not connected in this build." Foreground="{StaticResource MutedTextBrush}" FontSize="11" VerticalAlignment="Center" />
-                    <TextBlock Text="MCP READY TO CONNECT" Foreground="{StaticResource AccentBrush}" FontSize="10" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                        <TextBlock x:Name="FrameInfo" Text="MCP CAMERA BRIDGE" Foreground="{StaticResource AccentBrush}" FontSize="10" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" />
                 </Grid>
             </Grid>
 
@@ -142,9 +143,9 @@
                 <Border Style="{StaticResource PanelCard}" Padding="18" Margin="0,0,0,14">
                     <StackPanel>
                         <TextBlock Text="CAMERA" Style="{StaticResource SectionLabel}" />
-                        <TextBlock Text="ASI120MC" FontSize="17" FontWeight="SemiBold" />
-                        <TextBlock Text="ZWO planetary camera" Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="0,4,0,16" />
-                        <Button x:Name="ConnectButton" Style="{StaticResource ActionButton}" Content="Connect camera" Click="ConnectButton_Click" HorizontalContentAlignment="Center" />
+                        <TextBlock x:Name="CameraName" Text="No camera selected" FontSize="17" FontWeight="SemiBold" />
+                        <TextBlock x:Name="CameraModel" Text="ZWO ASI camera" Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="0,4,0,16" />
+                        <Button x:Name="ConnectButton" Style="{StaticResource ActionButton}" Content="Find and connect camera" Click="ConnectButton_Click" HorizontalContentAlignment="Center" />
                     </StackPanel>
                 </Border>
 
@@ -155,12 +156,14 @@
                             <TextBlock Text="Exposure" VerticalAlignment="Center" />
                             <TextBlock Text="ms" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                         </Grid>
-                        <Slider Minimum="0" Maximum="100" IsEnabled="False" />
+                        <Slider x:Name="ExposureSlider" Minimum="0.001" Maximum="1000" Value="100" IsEnabled="False" ValueChanged="ExposureSlider_ValueChanged" />
+                        <TextBlock x:Name="ExposureValue" Text="— ms" Foreground="{StaticResource MutedTextBrush}" FontSize="11" HorizontalAlignment="Right" />
                         <Grid Margin="0,15,0,12">
                             <TextBlock Text="Gain" VerticalAlignment="Center" />
                             <TextBlock Text="ASI120MC range" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="11" />
                         </Grid>
-                        <Slider Minimum="0" Maximum="100" IsEnabled="False" />
+                        <Slider x:Name="GainSlider" Minimum="0" Maximum="100" Value="50" IsEnabled="False" ValueChanged="GainSlider_ValueChanged" />
+                        <TextBlock x:Name="GainValue" Text="—" Foreground="{StaticResource MutedTextBrush}" FontSize="11" HorizontalAlignment="Right" />
                         <Separator Margin="0,18,0,14" Background="#273442" />
                         <Grid>
                             <TextBlock Text="Frame format" VerticalAlignment="Center" />
@@ -173,7 +176,7 @@
                     <StackPanel>
                         <TextBlock Text="OBSERVATION ASSIST" Style="{StaticResource SectionLabel}" />
                         <TextBlock Text="Live image understanding" FontWeight="SemiBold" FontSize="14" />
-                        <TextBlock Text="The connected AI can inspect each returned image, describe what is visible, and ask for a bounded follow-up capture. Time, location, and mount coordinates can improve object identification." TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}" FontSize="12" LineHeight="19" Margin="0,8,0,0" />
+                        <TextBlock Text="Live frames include brightness, highlight-clipping, focus, and bright-point metrics. MCP can suggest a bounded exposure adjustment without applying it; the AI client can inspect the image and request a follow-up capture. Time, location, and mount coordinates improve object identification." TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}" FontSize="12" LineHeight="19" Margin="0,8,0,0" />
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -198,3 +201,4 @@
         </Border>
     </Grid>
 </Window>
+

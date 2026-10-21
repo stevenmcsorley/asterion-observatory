@@ -24,23 +24,20 @@ Camera session service ─── ZWO ASI SDK ─── ASI120MC
 - **Desktop UI:** displays live preview and current camera state, supports manual operation, and reflects changes made by MCP calls.
 - **MCP server:** exposes typed tools through local stdio and forwards them to the running desktop app over a same-user named pipe. The camera service itself is not exposed directly to the network.
 
-## Initial MCP tools
+## Current MCP tools
 
 - `list_cameras` — report detected camera names and stable identifiers.
-- `get_camera_status` — report connection, preview, active capture, current exposure/gain, ROI, and frame/drop statistics when available.
-- `get_preview_frame` — return one current preview image and relevant settings.
-- `set_camera_settings` — set only requested exposure, gain, and ROI values after checking device ranges and current camera state.
-- `capture_snapshot` — save one image to the configured session folder and return its path/metadata (and image content where the client supports it).
-- `start_recording` — begin a recording with an explicit duration or frame limit, format, and target name.
-- `stop_recording` — stop the current recording and report its result.
-- `analyze_live_view` — return the current image as MCP image content with capture settings, dimensions, and timestamp. The connected AI client supplies vision interpretation.
-- `capture_for_analysis` — capture one frame or a short bounded burst with requested in-range settings, then return image content and metadata for another AI inspection.
+- `get_camera_status` — report connection and current exposure/gain state.
+- `get_camera_capabilities` — report exposure and gain ranges for safe settings.
+- `get_live_view` — return a preview image with sampled brightness, highlight, focus, and bright-point heuristics. The AI client supplies image interpretation.
+- `set_camera_settings` — set exposure and gain after checking device ranges.
+- `capture_for_analysis` — capture one still using optional in-range temporary settings, save it under Pictures/Asterion Observatory/Captures, return image content, and restore original settings.
+- `suggest_camera_settings` — propose a bounded exposure/gain adjustment from frame brightness without applying it.
 
-The AI vision cycle is intentionally client-driven: get preview image → interpret → optionally request a bounded higher-quality capture → interpret the returned image. This keeps image interpretation compatible with vision-capable MCP clients and avoids coupling the camera app to one model vendor. Catalog-based identification can add likely object names when the app has enough context (time/location and preferably mount coordinates); vision-only descriptions must be presented as uncertain.
-
+The vision loop remains client-driven: inspect a returned frame, optionally request a suggested setting or bounded follow-up still, then inspect again. Catalog-based identification needs observing time/location and ideally mount coordinates plus plate solving; vision-only identification remains uncertain.
 ## Broader observatory tools
 
-After the first live-imaging milestone, the same app service can expose tools for:
+Future milestones can add tools for:
 
 - Exposure/gain suggestions based on the frame histogram and capture goal.
 - Focus score and star-quality measurements, with optional focuser control when one is connected.
@@ -66,14 +63,10 @@ The API should return structured state and actionable errors. Long-running opera
 
 ## Implementation sequence
 
-1. Define `ICameraBackend` and `ICameraSession` abstractions and model connection, preview, setting, and capture states.
-2. Implement the ZWO backend for enumerate/connect/disconnect, preview, exposure/gain/ROI, snapshot, and video recording.
-3. Build the WPF UI against the session service and confirm manual operations work.
-4. Connect the same session service to the stdio MCP endpoint; current tools expose discovery/status, preview images, bounded exposure/gain changes, and one-frame snapshots.
-5. Add reliable frame delivery, bounded video recording, capture session folders, progress/cancellation, and logging.
-6. Add the client-driven vision loop and capture-quality helpers.
-7. Add astronomy-specific tools in stages: focus/metrics, plate solving, equipment, then sequences and stacking.
-
+1. Add reliable video recording, capture session management, progress/cancellation, and logging.
+2. Improve camera selection, exposure/gain feedback, and frame-quality workflows.
+3. Add astronomy-specific tools in stages: focus/metrics, plate solving, equipment, then sequences and stacking.
 ## Compatibility and clean-room notes
 
 REA findings are summarized in `research/sharpcap-findings.md` and relate to the inspected SharpCap build. They inform workflow selection and terminology; Asterion uses the supported ZWO SDK and its own UI, state model, and implementation. Findings are static and do not establish SharpCap runtime behavior.
+
