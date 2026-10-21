@@ -69,4 +69,3 @@ The API should return structured state and actionable errors. Long-running opera
 ## Compatibility and clean-room notes
 
 REA findings are summarized in `research/sharpcap-findings.md` and relate to the inspected SharpCap build. They inform workflow selection and terminology; Asterion uses the supported ZWO SDK and its own UI, state model, and implementation. Findings are static and do not establish SharpCap runtime behavior.
-

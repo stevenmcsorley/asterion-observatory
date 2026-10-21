@@ -84,7 +84,6 @@
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
                         <Button x:Name="SnapshotButton" Style="{StaticResource ActionButton}" Content="Save snapshot" IsEnabled="False" Click="SnapshotButton_Click" Margin="0,0,8,0" />
-                        <Button Style="{StaticResource ActionButton}" Content="Record" IsEnabled="False" />
                     </StackPanel>
                 </Grid>
 
@@ -201,4 +200,5 @@
         </Border>
     </Grid>
 </Window>
+
 
