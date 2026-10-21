@@ -1,0 +1,13 @@
+<Application x:Class="Asterion.Desktop.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Asterion.Desktop">
+    <Application.Resources>
+        <SolidColorBrush x:Key="CanvasBrush" Color="#090D13" />
+        <SolidColorBrush x:Key="PanelBrush" Color="#101720" />
+        <SolidColorBrush x:Key="PanelBorderBrush" Color="#202C39" />
+        <SolidColorBrush x:Key="TextBrush" Color="#E5EDF5" />
+        <SolidColorBrush x:Key="MutedTextBrush" Color="#8291A1" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#78D8C7" />
+    </Application.Resources>
+</Application>
