@@ -125,11 +125,11 @@
                             </Border>
                         </StackPanel>
                         <Border CornerRadius="8" Background="#0B1219" BorderBrush="#1E2B37" BorderThickness="1" Padding="10,6" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="16">
-                            <TextBlock Text="NO FRAME" FontSize="10" FontWeight="Bold" Foreground="{StaticResource MutedTextBrush}" />
+                            <TextBlock x:Name="LiveBadge" Text="NO FRAME" FontSize="10" FontWeight="Bold" Foreground="{StaticResource MutedTextBrush}" />
                         </Border>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="16">
-                            <TextBlock Text="— fps" Foreground="{StaticResource MutedTextBrush}" FontSize="11" Margin="0,0,18,0" />
-                            <TextBlock Text="0 dropped" Foreground="{StaticResource MutedTextBrush}" FontSize="11" />
+                            <TextBlock x:Name="FpsLabel" Text="— fps" Foreground="{StaticResource MutedTextBrush}" FontSize="11" Margin="0,0,18,0" />
+                            <TextBlock x:Name="SkippedLabel" Text="0 UI skips" Foreground="{StaticResource MutedTextBrush}" FontSize="11" />
                         </StackPanel>
                     </Grid>
                 </Border>

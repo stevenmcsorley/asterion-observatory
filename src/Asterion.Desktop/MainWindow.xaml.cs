@@ -19,6 +19,9 @@ public partial class MainWindow : Window
     private NumericRange? _exposureRange;
     private bool _recording;
     private ImageFrame? _lastFrame;
+    private DateTimeOffset? _previousFrameTimestamp;
+    private double _smoothedFps;
+    private long _skippedPreviewTicks;
 
     public MainWindow(ICameraSession cameraSession)
     {
@@ -83,7 +86,8 @@ public partial class MainWindow : Window
 
     private async void PreviewTimer_Tick(object? sender, EventArgs e)
     {
-        if (_readingFrame || !_connected) return;
+        if (!_connected) return;
+        if (_readingFrame) { SkippedLabel.Text = $"{++_skippedPreviewTicks} UI skips"; return; }
         _readingFrame = true;
         try
         {
@@ -335,6 +339,14 @@ public partial class MainWindow : Window
         bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.StreamSource = stream; bitmap.EndInit(); bitmap.Freeze();
         PreviewImage.Source = bitmap;
         _lastFrame = frame;
+        LiveBadge.Text = $"LIVE · {frame.Settings.PixelFormat ?? "RGB24"} · {frame.Settings.Bin}×";
+        LiveBadge.Foreground = System.Windows.Media.Brushes.LightGreen;
+        if (_previousFrameTimestamp is { } previous)
+        {
+            var elapsed = (frame.Timestamp - previous).TotalSeconds;
+            if (elapsed > 0) { var instant = 1 / elapsed; _smoothedFps = _smoothedFps == 0 ? instant : _smoothedFps * 0.75 + instant * 0.25; FpsLabel.Text = $"{_smoothedFps:0.0} fps"; }
+        }
+        _previousFrameTimestamp = frame.Timestamp;
         PreviewImage.Visibility = Visibility.Visible;
         PreviewPlaceholder.Visibility = Visibility.Collapsed;
         FrameInfo.Text = frame.Metrics is { } m
@@ -360,6 +372,11 @@ public partial class MainWindow : Window
         CameraName.Text = "No camera selected";
         CameraModel.Text = "ZWO ASI camera";
         FrameInfo.Text = "MCP CAMERA BRIDGE";
+        LiveBadge.Text = "NO FRAME";
+        LiveBadge.Foreground = System.Windows.Media.Brushes.Gray;
+        FpsLabel.Text = "— fps";
+        _previousFrameTimestamp = null;
+        _smoothedFps = 0;
         StatusMessage.Text = message;
     }
 
