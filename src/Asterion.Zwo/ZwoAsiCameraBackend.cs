@@ -25,10 +25,33 @@ public sealed class ZwoAsiCameraBackend : ICameraBackend
     public async Task ConnectAsync(string cameraId, CancellationToken ct) {
         await gate.WaitAsync(ct); try {
             if(!int.TryParse(cameraId,out var id)) throw new ArgumentException("Invalid ASI camera ID.");
-            Check(Native.ASIGetCameraPropertyByID(id,out var c)); camera=c; connection=CameraConnectionState.Connecting;
-            Check(Native.ASIOpenCamera(id)); try { Check(Native.ASIInitCamera(id)); } catch { Native.ASICloseCamera(id); camera=null; throw; }
-            connected=true; capabilities=ReadCapabilities(c); settings=ReadSettings(); connection=CameraConnectionState.Connected;
-            StartVideo();
+            connection=CameraConnectionState.Connecting;
+            var count=Native.ASIGetNumOfConnectedCameras();
+            CameraInfo? discovered=null;
+            for(var index=0;index<count;index++)
+            {
+                Check(Native.ASIGetCameraProperty(out var candidate,index));
+                if(candidate.CameraID==id){discovered=candidate;break;}
+            }
+            var c=discovered??throw new InvalidOperationException($"ZWO ASI camera ID {id} is no longer connected. Refresh the camera list and try again.");
+            camera=c;
+            var opened=false;
+            try
+            {
+                Check(Native.ASIOpenCamera(id)); opened=true;
+                Check(Native.ASIInitCamera(id));
+                connected=true;
+                capabilities=ReadCapabilities(c);
+                settings=ReadSettings();
+                StartVideo();
+                connection=CameraConnectionState.Connected;
+            }
+            catch
+            {
+                if(opened) Native.ASICloseCamera(id);
+                connected=false;capturing=false;camera=null;capabilities=null;
+                throw;
+            }
         } catch { connection=CameraConnectionState.Faulted; throw; } finally { gate.Release(); }
     }
     public async Task DisconnectAsync(CancellationToken ct) { await gate.WaitAsync(ct); try { if(camera is { } c) { if(capturing){Native.ASIStopVideoCapture(c.CameraID);capturing=false;} Native.ASICloseCamera(c.CameraID); } connected=false; camera=null; capabilities=null; connection=CameraConnectionState.Disconnected; } finally { gate.Release(); } }
@@ -63,7 +86,7 @@ public sealed class ZwoAsiCameraBackend : ICameraBackend
     private void StartVideo(){ if(!capturing){Check(Native.ASISetROIFormat(RequireCamera().CameraID,(int)(RequireCamera().MaxWidth/4)*4,(int)(RequireCamera().MaxHeight/4)*4,1,Rgb24));Check(Native.ASIStartVideoCapture(RequireCamera().CameraID));capturing=true;} }
     private CameraInfo RequireCamera()=>connected&&camera is { } c?c:throw new InvalidOperationException("Connect a camera first.");
     private static CameraDescriptor Describe(CameraInfo c)=>new(c.CameraID.ToString(),c.Name,c.Name,null,(int)c.MaxWidth,(int)c.MaxHeight,c.IsColorCam!=0,c.MechanicalShutter!=0,c.IsCoolerCam!=0);
-    private static void Check(int rc){if(rc!=0)throw new InvalidOperationException($"ZWO ASI SDK error {rc}.");}
+    private static void Check(int rc){if(rc==0)return;var detail=rc switch{1=>"no camera at that index",2=>"invalid camera ID",3=>"unsupported control",4=>"camera is not open",5=>"camera was removed",9=>"unsupported image format",11=>"camera frame timed out",12=>"invalid capture sequence",16=>"camera rejected the requested setting",_=>"native SDK operation failed"};throw new InvalidOperationException($"ZWO ASI SDK error {rc}: {detail}.");}
 
     private static ImageMetrics Analyze(byte[] rgb,int width,int height)
     {
