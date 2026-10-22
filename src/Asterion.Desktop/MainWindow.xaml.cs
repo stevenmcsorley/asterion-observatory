@@ -16,6 +16,7 @@ public partial class MainWindow : Window
     private bool _updatingControls;
     private bool _connected;
     private CameraSettings? _currentSettings;
+    private NumericRange? _exposureRange;
 
     public MainWindow(ICameraSession cameraSession)
     {
@@ -52,8 +53,7 @@ public partial class MainWindow : Window
             CameraName.Text = camera.Name;
             CameraModel.Text = $"{camera.Width} × {camera.Height} · ZWO ASI";
             var capabilities = await _cameraSession.GetCapabilitiesAsync(CancellationToken.None);
-            ExposureSlider.Minimum = Math.Max(capabilities.ExposureMilliseconds.Minimum, 0.001);
-            ExposureSlider.Maximum = Math.Max(capabilities.ExposureMilliseconds.Maximum, ExposureSlider.Minimum + 0.001);
+            SetExposureRange(capabilities.ExposureMilliseconds);
             GainSlider.Minimum = capabilities.Gain.Minimum;
             GainSlider.Maximum = Math.Max(capabilities.Gain.Maximum, capabilities.Gain.Minimum + 1);
             _currentSettings = await _cameraSession.SetSettingsAsync(_cameraSession.GetStatus().Settings!, CancellationToken.None);
@@ -106,7 +106,7 @@ public partial class MainWindow : Window
     private void ExposureSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (_updatingControls || ExposureValue is null) return;
-        ExposureValue.Text = $"{ExposureSlider.Value:0.###} ms";
+        ExposureValue.Text = $"{ExposureFromSlider(ExposureSlider.Value):0.###} ms";
         ScheduleSettings();
     }
 
@@ -128,7 +128,7 @@ public partial class MainWindow : Window
         if (!_connected || _currentSettings is null) return;
         try
         {
-            var requested = _currentSettings with { ExposureMilliseconds = ExposureSlider.Value, Gain = GainSlider.Value };
+            var requested = _currentSettings with { ExposureMilliseconds = ExposureFromSlider(ExposureSlider.Value), Gain = GainSlider.Value };
             _currentSettings = await _cameraSession.SetSettingsAsync(requested, CancellationToken.None);
             StatusMessage.Text = "Acquisition settings applied.";
         }
@@ -147,8 +147,7 @@ public partial class MainWindow : Window
                 CameraModel.Text = $"{camera.Width} × {camera.Height} · ZWO ASI";
                 _currentSettings = status.Settings;
                 var capabilities = await _cameraSession.GetCapabilitiesAsync(CancellationToken.None);
-                ExposureSlider.Minimum = Math.Max(capabilities.ExposureMilliseconds.Minimum, 0.001);
-                ExposureSlider.Maximum = Math.Max(capabilities.ExposureMilliseconds.Maximum, ExposureSlider.Minimum + 0.001);
+                SetExposureRange(capabilities.ExposureMilliseconds);
                 GainSlider.Minimum = capabilities.Gain.Minimum;
                 GainSlider.Maximum = Math.Max(capabilities.Gain.Maximum, capabilities.Gain.Minimum + 1);
                 if (_currentSettings is not null) ShowSettings(_currentSettings);
@@ -190,12 +189,36 @@ public partial class MainWindow : Window
         _updatingControls = true;
         try
         {
-            ExposureSlider.Value = Math.Clamp(settings.ExposureMilliseconds, ExposureSlider.Minimum, ExposureSlider.Maximum);
+            ExposureSlider.Value = ExposureToSlider(settings.ExposureMilliseconds);
             GainSlider.Value = Math.Clamp(settings.Gain, GainSlider.Minimum, GainSlider.Maximum);
             ExposureValue.Text = $"{settings.ExposureMilliseconds:0.###} ms";
             GainValue.Text = $"{settings.Gain:0} gain";
         }
         finally { _updatingControls = false; }
+    }
+
+    private void SetExposureRange(NumericRange range)
+    {
+        _exposureRange = range;
+        ExposureSlider.Minimum = 0;
+        ExposureSlider.Maximum = 100;
+    }
+
+    private double ExposureFromSlider(double position)
+    {
+        var range = _exposureRange ?? new NumericRange(0.001, 1000, 0.001);
+        var minimum = Math.Max(range.Minimum, 0.001);
+        var maximum = Math.Max(range.Maximum, minimum);
+        return minimum * Math.Pow(maximum / minimum, Math.Clamp(position, 0, 100) / 100d);
+    }
+
+    private double ExposureToSlider(double exposure)
+    {
+        var range = _exposureRange ?? new NumericRange(0.001, 1000, 0.001);
+        var minimum = Math.Max(range.Minimum, 0.001);
+        var maximum = Math.Max(range.Maximum, minimum);
+        if (maximum <= minimum) return 0;
+        return 100 * Math.Log(Math.Clamp(exposure, minimum, maximum) / minimum) / Math.Log(maximum / minimum);
     }
 
     private void ShowFrame(ImageFrame frame)

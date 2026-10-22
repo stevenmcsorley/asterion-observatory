@@ -155,7 +155,7 @@
                             <TextBlock Text="Exposure" VerticalAlignment="Center" />
                             <TextBlock Text="ms" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                         </Grid>
-                        <Slider x:Name="ExposureSlider" Minimum="0.001" Maximum="1000" Value="100" IsEnabled="False" ValueChanged="ExposureSlider_ValueChanged" />
+                        <Slider x:Name="ExposureSlider" Minimum="0" Maximum="100" Value="50" IsEnabled="False" ValueChanged="ExposureSlider_ValueChanged" />
                         <TextBlock x:Name="ExposureValue" Text="— ms" Foreground="{StaticResource MutedTextBrush}" FontSize="11" HorizontalAlignment="Right" />
                         <Grid Margin="0,15,0,12">
                             <TextBlock Text="Gain" VerticalAlignment="Center" />

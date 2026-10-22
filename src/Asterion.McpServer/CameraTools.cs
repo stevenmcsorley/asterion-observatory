@@ -24,14 +24,20 @@ public sealed class CameraTools(CameraPipeClient camera)
         var caps = await camera.CallAsync<CameraCapabilities>("get_camera_capabilities", null, cancellationToken);
         var current = status.Settings ?? throw new InvalidOperationException("Connect a camera first.");
         var m = frame.Metrics ?? throw new InvalidOperationException("The backend did not return image metrics.");
-        var factor = m.ClippedPixelFraction > 0.03 || m.MeanLuminance > 90 ? 0.67 : m.MeanLuminance < 18 ? 1.5 : 1.0;
-        var exposure = Math.Clamp(current.ExposureMilliseconds * factor, caps.ExposureMilliseconds.Minimum, caps.ExposureMilliseconds.Maximum);
+        var factor = m.ClippedPixelFraction > 0.03 || m.MeanLuminance > 90 ? 0.5
+            : m.MeanLuminance < 1 ? 4.0
+            : m.MeanLuminance < 8 ? 2.5
+            : m.MeanLuminance < 18 ? 1.5
+            : 1.0;
+        // Keep suggestions useful for live preview; very long integrations belong in a future capture workflow.
+        var previewCeiling = Math.Min(caps.ExposureMilliseconds.Maximum, 5000);
+        var exposure = Math.Clamp(current.ExposureMilliseconds * factor, caps.ExposureMilliseconds.Minimum, previewCeiling);
         var gain = current.Gain;
         if (factor > 1 && exposure >= caps.ExposureMilliseconds.Maximum * 0.98)
             gain = Math.Min(caps.Gain.Maximum, gain + Math.Max(caps.Gain.Step, 5));
         if (factor < 1 && exposure <= caps.ExposureMilliseconds.Minimum * 1.02)
             gain = Math.Max(caps.Gain.Minimum, gain - Math.Max(caps.Gain.Step, 5));
-        var reason = factor > 1 ? "The sampled frame is dark; this proposal raises exposure conservatively." : factor < 1 ? "The sampled frame is bright or has clipped highlights; this proposal lowers exposure." : "The frame brightness is within the current target band; no change is suggested.";
+        var reason = factor > 1 ? "The sampled frame is dark; this proposal raises exposure for a useful live preview, capped at 5 seconds." : factor < 1 ? "The sampled frame is bright or has clipped highlights; this proposal lowers exposure." : "The frame brightness is within the current target band; no change is suggested.";
         return new(current, current with { ExposureMilliseconds = exposure, Gain = gain }, reason, m);
     }
 
