@@ -1,12 +1,14 @@
-# Asterion Observatory Preview 7
+# Asterion Observatory Preview 8
 
-This preview adds adjustable live JPEG compression quality while preserving PNG still capture, alongside camera throughput controls and live feed status.
+This preview adds a borderless fullscreen live viewer, plus a choice of raw SER and playback-friendly MJPEG AVI recording.
 
 ## Included
 
 - Self-contained Windows x64 desktop application and MCP stdio server
 - ZWO ASI camera discovery, continuous preview, exposure/gain, camera-reported binning, and RGB24/RAW8 selection
-- Save the current preview frame as PNG, take a fresh still PNG, or record a stoppable SER video sequence
+- Save the current preview frame as PNG/JPEG, take a fresh still PNG, or record a stoppable SER or MJPEG AVI sequence
+- Fullscreen live video with an on-screen exit control and Escape shortcut
+- SER keeps raw sensor data and frame timestamps for astronomy processing; MJPEG AVI uses JPEG-compressed frames for common video players
 - A one-click auto-exposure adjustment based on live image brightness and clipping
 - Live preview FPS and skipped UI refresh tick indicators
 - Adjustable live preview JPEG quality; still images continue to save as PNG
@@ -22,10 +24,10 @@ This preview adds adjustable live JPEG compression quality while preserving PNG 
 4. Add `Asterion.McpServer/Asterion.McpServer.exe` as an MCP server using stdio in your MCP client. Keep the desktop app open while using MCP.
 5. Verify the downloaded archive with its `.sha256` file if desired.
 
-Stills and preview screenshots are saved to `Pictures/Asterion Observatory/Captures`. SER recordings are saved to `Videos/Asterion Observatory/Recordings`.
+Stills and preview screenshots are saved to `Pictures/Asterion Observatory/Captures`. SER and AVI recordings are saved to `Videos/Asterion Observatory/Recordings`.
 
 ## Preview status
 
-RAW8/binning acquisition and stoppable SER recording were verified with a connected ZWO ASI120MC: 640×480 at 33 ms produced a real preview, and a 260-frame Bayer SER recording was recognized by ffprobe. Preview7 changes live view transport to adjustable JPEG while still captures remain PNG. Plate solving, catalog-based object identification, and mount/focuser integrations are not included. Bright-point and focus metrics are image heuristics; they do not identify astronomical objects. AI image analysis is provided by the connected MCP client, not an embedded model.
+RAW8/binning acquisition and stoppable SER recording were verified with a connected ZWO ASI120MC: 640×480 at 33 ms produced a real preview, and a 260-frame Bayer SER recording was recognized by ffprobe. The AVI writer and fullscreen viewer are new in Preview 8 and require validation against the connected camera. Plate solving, catalog-based object identification, and mount/focuser integrations are not included. Bright-point and focus metrics are image heuristics; they do not identify astronomical objects. AI image analysis is provided by the connected MCP client, not an embedded model.
 
 Camera settings are sent to the camera only when an operator or MCP client requests a change. The suggestion tool only returns a proposal.

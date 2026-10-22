@@ -73,7 +73,8 @@ public sealed class ZwoAsiCameraBackend : ICameraBackend
     }
     public async Task<CaptureResult> CaptureSequenceAsync(CaptureRequest request,CancellationToken ct)
     {
-        if(!string.Equals(request.Format,"SER",StringComparison.OrdinalIgnoreCase))throw new NotSupportedException("Video recording currently supports SER format.");
+        if(string.Equals(request.Format,"AVI",StringComparison.OrdinalIgnoreCase)) return await CaptureAviSequenceAsync(request,ct);
+        if(!string.Equals(request.Format,"SER",StringComparison.OrdinalIgnoreCase))throw new NotSupportedException("Video recording supports SER and AVI formats.");
         var activeCamera=camera??throw new InvalidOperationException("Connect a camera first.");
         if(recording)throw new InvalidOperationException("A SER recording is already active.");
         var started=DateTimeOffset.UtcNow;var folder=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos),"Asterion Observatory","Recordings");Directory.CreateDirectory(folder);
@@ -94,6 +95,52 @@ public sealed class ZwoAsiCameraBackend : ICameraBackend
             return new(path,"SER",frames,started,DateTimeOffset.UtcNow,captureSettings);
         }
         finally{recording=false;recordingCancellation=null;}
+    }
+    private async Task<CaptureResult> CaptureAviSequenceAsync(CaptureRequest request,CancellationToken ct)
+    {
+        var activeCamera=camera??throw new InvalidOperationException("Connect a camera first.");
+        if(recording)throw new InvalidOperationException("A video recording is already active.");
+        var started=DateTimeOffset.UtcNow;var folder=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos),"Asterion Observatory","Recordings");Directory.CreateDirectory(folder);
+        var path=Path.Combine(folder,$"{SafeName(request.TargetName)}_{started:yyyyMMdd_HHmmss}.avi");using var linked=CancellationTokenSource.CreateLinkedTokenSource(ct);recordingCancellation=linked;recording=true;long frames=0;var captureSettings=settings;
+        try
+        {
+            await using var stream=new FileStream(path,FileMode.CreateNew,FileAccess.ReadWrite,FileShare.Read,1024*1024,FileOptions.Asynchronous|FileOptions.SequentialScan);
+            using var writer=new BinaryWriter(stream,System.Text.Encoding.ASCII,true);
+            var bin=Math.Max(1,settings.Bin);var width=(int)(activeCamera.MaxWidth/bin/4)*4;var height=(int)(activeCamera.MaxHeight/bin/4)*4;
+            var header=WriteAviHeader(writer,width,height,Math.Clamp(settings.PreviewQuality,40,95));var end=request.Duration is { } duration?started+duration:DateTimeOffset.MaxValue;
+            var index=new List<(uint Offset,uint Size)>();
+            while(!linked.IsCancellationRequested&&(request.FrameLimit is { } limit?frames<limit:DateTimeOffset.UtcNow<end))
+            {
+                (byte[] Data,int Width,int Height,int Stride,bool IsColor) raw;
+                try { raw=await ReadRawFrameAsync(linked.Token); } catch(OperationCanceledException) when(linked.IsCancellationRequested){break;}
+                var bitmap=BitmapSource.Create(raw.Width,raw.Height,96,96,raw.IsColor?PixelFormats.Rgb24:PixelFormats.Gray8,null,raw.Data,raw.Stride);
+                var encoder=new JpegBitmapEncoder{QualityLevel=Math.Clamp(captureSettings.PreviewQuality,40,95)};encoder.Frames.Add(BitmapFrame.Create(bitmap));using var jpeg=new MemoryStream();encoder.Save(jpeg);var bytes=jpeg.ToArray();
+                var chunkStart=stream.Position;writer.Write(System.Text.Encoding.ASCII.GetBytes("00dc"));writer.Write(bytes.Length);writer.Write(bytes);if((bytes.Length&1)!=0)writer.Write((byte)0);
+                index.Add((checked((uint)(chunkStart-header.MoviDataStart+4)),checked((uint)bytes.Length)));frames++;
+            }
+            var moviEnd=stream.Position;writer.Write(System.Text.Encoding.ASCII.GetBytes("idx1"));writer.Write(checked(index.Count*16));foreach(var entry in index){writer.Write(System.Text.Encoding.ASCII.GetBytes("00dc"));writer.Write(0x10u);writer.Write(entry.Offset);writer.Write(entry.Size);}
+            var fileEnd=stream.Position;PatchAviHeader(writer,header,width,height,frames,started,fileEnd,moviEnd);await stream.FlushAsync(CancellationToken.None);
+            return new(path,"AVI",frames,started,DateTimeOffset.UtcNow,captureSettings);
+        }
+        finally{recording=false;recordingCancellation=null;}
+    }
+    private readonly record struct AviHeaderPositions(long RiffSize,long HdrlSize,long AvihFrames,long StrhLength,long MoviSize,long MoviDataStart,long FileSize);
+    private static AviHeaderPositions WriteAviHeader(BinaryWriter w,int width,int height,int quality)
+    {
+        w.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));var riffSize=w.BaseStream.Position;w.Write(0);w.Write(System.Text.Encoding.ASCII.GetBytes("AVI "));
+        w.Write(System.Text.Encoding.ASCII.GetBytes("LIST"));var hdrlSize=w.BaseStream.Position;w.Write(0);w.Write(System.Text.Encoding.ASCII.GetBytes("hdrl"));
+        w.Write(System.Text.Encoding.ASCII.GetBytes("avih"));w.Write(56);var microPos=w.BaseStream.Position;w.Write(33333);w.Write(0);w.Write(0);w.Write(0x10);var avihFrames=w.BaseStream.Position;w.Write(0);w.Write(0);w.Write(1);w.Write(0);w.Write(width);w.Write(height);for(var i=0;i<4;i++)w.Write(0);
+        w.Write(System.Text.Encoding.ASCII.GetBytes("LIST"));var strlSize=w.BaseStream.Position;w.Write(0);w.Write(System.Text.Encoding.ASCII.GetBytes("strl"));
+        w.Write(System.Text.Encoding.ASCII.GetBytes("strh"));w.Write(56);w.Write(System.Text.Encoding.ASCII.GetBytes("vids"));w.Write(System.Text.Encoding.ASCII.GetBytes("MJPG"));w.Write(0);w.Write((short)0);w.Write((short)0);w.Write(0u);w.Write(1u);var fps=Math.Clamp((int)Math.Round(1_000_000d/33333),1,30);w.Write((uint)(1_000_000/fps));w.Write(0u);var strhLength=w.BaseStream.Position;w.Write(0);w.Write(0u);w.Write(0u);w.Write((short)0);w.Write((short)0);w.Write((short)width);w.Write((short)height);
+        w.Write(System.Text.Encoding.ASCII.GetBytes("strf"));w.Write(40);w.Write(40);w.Write(width);w.Write(height);w.Write((short)1);w.Write((short)24);w.Write(System.Text.Encoding.ASCII.GetBytes("MJPG"));w.Write(width*height*3);w.Write(0);w.Write(0);w.Write(0);w.Write(0);
+        var strlEnd=w.BaseStream.Position;w.BaseStream.Position=strlSize;w.Write(checked((int)(strlEnd-(strlSize+4))));w.BaseStream.Position=strlEnd;
+        var hdrlEnd=w.BaseStream.Position;w.BaseStream.Position=hdrlSize;w.Write(checked((int)(hdrlEnd-(hdrlSize+4))));w.BaseStream.Position=hdrlEnd;
+        w.Write(System.Text.Encoding.ASCII.GetBytes("LIST"));var moviSize=w.BaseStream.Position;w.Write(0);w.Write(System.Text.Encoding.ASCII.GetBytes("movi"));var dataStart=w.BaseStream.Position;
+        return new(riffSize,hdrlSize,avihFrames,strhLength,moviSize,dataStart,0);
+    }
+    private static void PatchAviHeader(BinaryWriter w,AviHeaderPositions p,int width,int height,long frames,DateTimeOffset started,long fileEnd,long moviEnd)
+    {
+        var elapsed=Math.Max(0.001,(DateTimeOffset.UtcNow-started).TotalSeconds);var fps=Math.Clamp(frames/elapsed,1,30);w.BaseStream.Position=p.RiffSize;w.Write(checked((int)(fileEnd-8)));w.BaseStream.Position=p.RiffSize+32;w.Write(checked((int)Math.Round(1_000_000/fps)));w.BaseStream.Position=p.AvihFrames;w.Write(checked((int)frames));w.BaseStream.Position=p.StrhLength;w.Write(checked((int)frames));w.BaseStream.Position=p.MoviSize;w.Write(checked((int)(moviEnd-(p.MoviSize+4))));w.BaseStream.Position=fileEnd;
     }
     public Task StopCaptureAsync(CancellationToken ct){recordingCancellation?.Cancel();return Task.CompletedTask;}
     public CameraStatus GetStatus() => new(connection, recording?CameraCaptureState.Capturing:CameraCaptureState.Idle,camera is { } c?Describe(c):null,connected?settings:null,null,0,connection==CameraConnectionState.Connected?"ASI camera connected.":null);

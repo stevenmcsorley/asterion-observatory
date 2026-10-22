@@ -86,6 +86,8 @@
                         <Button x:Name="ScreenshotButton" Style="{StaticResource ActionButton}" Content="Save current frame" IsEnabled="False" Click="ScreenshotButton_Click" Margin="0,0,8,0" />
                         <Button x:Name="SnapshotButton" Style="{StaticResource ActionButton}" Content="Capture image" IsEnabled="False" Click="SnapshotButton_Click" Margin="0,0,8,0" />
                         <Button x:Name="RecordButton" Style="{StaticResource ActionButton}" Content="Record SER" IsEnabled="False" Click="RecordButton_Click" />
+                        <Button x:Name="FullscreenButton" Style="{StaticResource ActionButton}" Content="Fullscreen" IsEnabled="False" Click="FullscreenButton_Click" Margin="8,0,0,0" />
+                        <ComboBox x:Name="VideoFormatCombo" Width="85" SelectedIndex="0" Margin="8,0,0,0" VerticalAlignment="Center" SelectionChanged="VideoFormatCombo_SelectionChanged"><ComboBoxItem Content="SER" /><ComboBoxItem Content="AVI" /></ComboBox>
                     </StackPanel>
                 </Grid>
 

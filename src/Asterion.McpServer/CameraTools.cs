@@ -121,6 +121,22 @@ public sealed class CameraTools(CameraPipeClient camera)
         return camera.CallAsync<CaptureResult>("capture_sequence", request, cancellationToken);
     }
 
+    [McpServerTool, Description("Record an astronomy video in SER (raw frames for stacking) or AVI (MJPEG for convenient playback). Choose exactly one of durationSeconds or frameLimit.")]
+    public Task<CaptureResult> RecordVideo(
+        [Description("SER for raw astronomy capture or AVI for MJPEG playback.")] string format,
+        [Description("Optional filename label for the recording.")] string? targetName,
+        [Description("Recording duration in seconds, up to 43200. Leave null to use frameLimit.")] double? durationSeconds,
+        [Description("Number of frames, 1 to 1000. Leave null to use durationSeconds.")] int? frameLimit,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(format, "SER", StringComparison.OrdinalIgnoreCase) && !string.Equals(format, "AVI", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("format must be SER or AVI.", nameof(format));
+        if (durationSeconds is null && frameLimit is null) throw new ArgumentException("Provide durationSeconds or frameLimit.");
+        var request = new CaptureRequest(targetName ?? "recording", format.ToUpperInvariant(), frameLimit,
+            durationSeconds is { } seconds ? TimeSpan.FromSeconds(seconds) : null, null);
+        return camera.CallAsync<CaptureResult>("capture_sequence", request, cancellationToken);
+    }
+
     [McpServerTool, Description("Stop the currently active SER video recording, saving all complete frames captured so far.")]
     public Task<CameraStatus> StopRecording(CancellationToken cancellationToken) =>
         camera.CallAsync<CameraStatus>("stop_capture", null, cancellationToken);

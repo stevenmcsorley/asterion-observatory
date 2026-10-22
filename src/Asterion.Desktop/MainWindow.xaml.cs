@@ -22,6 +22,8 @@ public partial class MainWindow : Window
     private DateTimeOffset? _previousFrameTimestamp;
     private double _smoothedFps;
     private long _skippedPreviewTicks;
+    private Window? _fullscreenWindow;
+    private Image? _fullscreenImage;
 
     public MainWindow(ICameraSession cameraSession)
     {
@@ -73,6 +75,10 @@ public partial class MainWindow : Window
             SnapshotButton.IsEnabled = true;
             ScreenshotButton.IsEnabled = AutoExposureButton.IsEnabled = true;
             FastPreviewButton.IsEnabled = true;
+            FullscreenButton.IsEnabled = true;
+            VideoFormatCombo.IsEnabled = true;
+            FullscreenButton.IsEnabled = true;
+            VideoFormatCombo.IsEnabled = true;
             RecordButton.IsEnabled = true;
             ExposureSlider.IsEnabled = GainSlider.IsEnabled = true;
             QualitySlider.IsEnabled = true;
@@ -185,16 +191,18 @@ public partial class MainWindow : Window
         RecordButton.Content = "Stop recording";
         ExposureSlider.IsEnabled = GainSlider.IsEnabled = QualitySlider.IsEnabled = BinningCombo.IsEnabled = PixelFormatCombo.IsEnabled = false;
         SnapshotButton.IsEnabled = ScreenshotButton.IsEnabled = AutoExposureButton.IsEnabled = FastPreviewButton.IsEnabled = false;
-        StatusMessage.Text = "Recording SER video… click Stop recording to finish.";
+        var format = (VideoFormatCombo.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString() ?? "SER";
+        StatusMessage.Text = $"Recording {format} video… click Stop recording to finish.";
         try
         {
-            var result = await _cameraSession.CaptureSequenceAsync(new CaptureRequest("observation", "SER", null, TimeSpan.FromHours(12), null), CancellationToken.None);
+            var result = await _cameraSession.CaptureSequenceAsync(new CaptureRequest("observation", format, null, TimeSpan.FromHours(12), null), CancellationToken.None);
             StatusMessage.Text = $"Video saved · {result.FramesCaptured} frames · {result.FilePath}";
         }
         catch (Exception ex) { StatusMessage.Text = $"Recording failed: {ex.Message}"; }
         finally
         {
-            _recording = false; RecordButton.Content = "Record SER"; RecordButton.IsEnabled = _connected;
+            _recording = false; RecordButton.Content = $"Record {format}"; RecordButton.IsEnabled = _connected;
+            VideoFormatCombo.IsEnabled = _connected;
             ExposureSlider.IsEnabled = GainSlider.IsEnabled = QualitySlider.IsEnabled = BinningCombo.IsEnabled = PixelFormatCombo.IsEnabled = _connected;
             SnapshotButton.IsEnabled = ScreenshotButton.IsEnabled = AutoExposureButton.IsEnabled = FastPreviewButton.IsEnabled = _connected;
         }
@@ -206,6 +214,11 @@ public partial class MainWindow : Window
         var format = PixelFormatCombo.SelectedItem?.ToString() ?? _currentSettings.PixelFormat;
         _currentSettings = _currentSettings with { Bin = BinningCombo.SelectedItem is int bin ? bin : 1, PixelFormat = format };
         ScheduleSettings();
+    }
+
+    private void VideoFormatCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (!_recording) RecordButton.Content = $"Record {(VideoFormatCombo.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content ?? "SER"}";
     }
 
     private void ExposureSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -350,6 +363,7 @@ public partial class MainWindow : Window
         using var stream = new MemoryStream(frame.Data);
         bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.StreamSource = stream; bitmap.EndInit(); bitmap.Freeze();
         PreviewImage.Source = bitmap;
+        if (_fullscreenImage is not null) _fullscreenImage.Source = bitmap;
         _lastFrame = frame;
         LiveBadge.Text = $"LIVE · {frame.Settings.PixelFormat ?? "RGB24"} · {frame.Settings.Bin}×";
         LiveBadge.Foreground = System.Windows.Media.Brushes.LightGreen;
@@ -366,6 +380,23 @@ public partial class MainWindow : Window
             : $"LIVE · {frame.Width} × {frame.Height} · {frame.Timestamp:HH:mm:ss} UTC";
     }
 
+    private void FullscreenButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_fullscreenWindow is { IsVisible: true }) { _fullscreenWindow.Activate(); return; }
+        var image = new Image { Stretch = System.Windows.Media.Stretch.Uniform, Source = PreviewImage.Source };
+        var exit = new Button { Content = "Exit fullscreen · Esc", Padding = new Thickness(14, 9, 14, 9), Opacity = 0.82, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(18) };
+        var grid = new Grid { Background = System.Windows.Media.Brushes.Black };
+        grid.Children.Add(image);
+        grid.Children.Add(exit);
+        var window = new Window { Title = "Asterion Observatory · Live", Content = grid, WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize, WindowState = WindowState.Maximized, Background = System.Windows.Media.Brushes.Black, Topmost = true };
+        exit.Click += (_, _) => window.Close();
+        window.KeyDown += (_, args) => { if (args.Key == System.Windows.Input.Key.Escape) window.Close(); };
+        window.Closed += (_, _) => { _fullscreenImage = null; _fullscreenWindow = null; };
+        _fullscreenImage = image;
+        _fullscreenWindow = window;
+        window.Show();
+    }
+
     private void SetDisconnected(string message)
     {
         _connected = false;
@@ -376,6 +407,9 @@ public partial class MainWindow : Window
         ScreenshotButton.IsEnabled = AutoExposureButton.IsEnabled = false;
         FastPreviewButton.IsEnabled = false;
         RecordButton.IsEnabled = false;
+        FullscreenButton.IsEnabled = false;
+        VideoFormatCombo.IsEnabled = false;
+        _fullscreenWindow?.Close();
         BinningCombo.IsEnabled = PixelFormatCombo.IsEnabled = false;
         ExposureSlider.IsEnabled = GainSlider.IsEnabled = QualitySlider.IsEnabled = false;
         PreviewImage.Source = null;
@@ -394,6 +428,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _fullscreenWindow?.Close();
         _previewTimer.Stop(); _settingsTimer.Stop(); _statusTimer.Stop();
         base.OnClosed(e);
     }
