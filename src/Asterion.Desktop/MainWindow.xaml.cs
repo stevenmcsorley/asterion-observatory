@@ -75,6 +75,7 @@ public partial class MainWindow : Window
             FastPreviewButton.IsEnabled = true;
             RecordButton.IsEnabled = true;
             ExposureSlider.IsEnabled = GainSlider.IsEnabled = true;
+            QualitySlider.IsEnabled = true;
             StatusMessage.Text = $"Connected to {camera.Name}. Live preview is active.";
             PreviewPlaceholder.Visibility = Visibility.Collapsed;
             PreviewImage.Visibility = Visibility.Visible;
@@ -122,7 +123,8 @@ public partial class MainWindow : Window
         {
             var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "Asterion Observatory", "Captures");
             Directory.CreateDirectory(folder);
-            var path = Path.Combine(folder, $"screen_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
+            var extension = _lastFrame.MimeType == "image/jpeg" ? ".jpg" : ".png";
+            var path = Path.Combine(folder, $"screen_{DateTime.Now:yyyyMMdd_HHmmss_fff}{extension}");
             await File.WriteAllBytesAsync(path, _lastFrame.Data);
             StatusMessage.Text = $"Current frame saved · {path}";
         }
@@ -181,7 +183,7 @@ public partial class MainWindow : Window
         }
         _recording = true;
         RecordButton.Content = "Stop recording";
-        ExposureSlider.IsEnabled = GainSlider.IsEnabled = BinningCombo.IsEnabled = PixelFormatCombo.IsEnabled = false;
+        ExposureSlider.IsEnabled = GainSlider.IsEnabled = QualitySlider.IsEnabled = BinningCombo.IsEnabled = PixelFormatCombo.IsEnabled = false;
         SnapshotButton.IsEnabled = ScreenshotButton.IsEnabled = AutoExposureButton.IsEnabled = FastPreviewButton.IsEnabled = false;
         StatusMessage.Text = "Recording SER video… click Stop recording to finish.";
         try
@@ -193,7 +195,7 @@ public partial class MainWindow : Window
         finally
         {
             _recording = false; RecordButton.Content = "Record SER"; RecordButton.IsEnabled = _connected;
-            ExposureSlider.IsEnabled = GainSlider.IsEnabled = BinningCombo.IsEnabled = PixelFormatCombo.IsEnabled = _connected;
+            ExposureSlider.IsEnabled = GainSlider.IsEnabled = QualitySlider.IsEnabled = BinningCombo.IsEnabled = PixelFormatCombo.IsEnabled = _connected;
             SnapshotButton.IsEnabled = ScreenshotButton.IsEnabled = AutoExposureButton.IsEnabled = FastPreviewButton.IsEnabled = _connected;
         }
     }
@@ -220,6 +222,13 @@ public partial class MainWindow : Window
         ScheduleSettings();
     }
 
+    private void QualitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_updatingControls || QualityValue is null) return;
+        QualityValue.Text = $"{QualitySlider.Value:0}%";
+        ScheduleSettings();
+    }
+
     private void ScheduleSettings()
     {
         if (_connected) { _settingsTimer.Stop(); _settingsTimer.Start(); }
@@ -231,7 +240,7 @@ public partial class MainWindow : Window
         if (!_connected || _currentSettings is null) return;
         try
         {
-            var requested = _currentSettings with { ExposureMilliseconds = ExposureFromSlider(ExposureSlider.Value), Gain = GainSlider.Value, Bin = BinningCombo.SelectedItem is int bin ? bin : 1, PixelFormat = PixelFormatCombo.SelectedItem?.ToString() ?? "RGB24" };
+            var requested = _currentSettings with { ExposureMilliseconds = ExposureFromSlider(ExposureSlider.Value), Gain = GainSlider.Value, Bin = BinningCombo.SelectedItem is int bin ? bin : 1, PixelFormat = PixelFormatCombo.SelectedItem?.ToString() ?? "RGB24", PreviewQuality = (int)Math.Round(QualitySlider.Value) };
             _currentSettings = await _cameraSession.SetSettingsAsync(requested, CancellationToken.None);
             StatusMessage.Text = "Acquisition settings applied.";
         }
@@ -267,6 +276,7 @@ public partial class MainWindow : Window
             FastPreviewButton.IsEnabled = true;
             RecordButton.IsEnabled = true;
             ExposureSlider.IsEnabled = GainSlider.IsEnabled = true;
+            QualitySlider.IsEnabled = true;
             PreviewPlaceholder.Visibility = Visibility.Collapsed;
             PreviewImage.Visibility = Visibility.Visible;
             _previewTimer.Start();
@@ -302,6 +312,8 @@ public partial class MainWindow : Window
             GainSlider.Value = Math.Clamp(settings.Gain, GainSlider.Minimum, GainSlider.Maximum);
             BinningCombo.SelectedItem = settings.Bin;
             PixelFormatCombo.SelectedItem = settings.PixelFormat;
+            QualitySlider.Value = settings.PreviewQuality;
+            QualityValue.Text = $"{settings.PreviewQuality}%";
             ExposureValue.Text = $"{settings.ExposureMilliseconds:0.###} ms";
             GainValue.Text = $"{settings.Gain:0} gain";
         }
@@ -365,7 +377,7 @@ public partial class MainWindow : Window
         FastPreviewButton.IsEnabled = false;
         RecordButton.IsEnabled = false;
         BinningCombo.IsEnabled = PixelFormatCombo.IsEnabled = false;
-        ExposureSlider.IsEnabled = GainSlider.IsEnabled = false;
+        ExposureSlider.IsEnabled = GainSlider.IsEnabled = QualitySlider.IsEnabled = false;
         PreviewImage.Source = null;
         PreviewImage.Visibility = Visibility.Collapsed;
         PreviewPlaceholder.Visibility = Visibility.Visible;

@@ -169,6 +169,8 @@
                         <Button x:Name="FastPreviewButton" Style="{StaticResource ActionButton}" Content="Fast preview · 33 ms / RAW8 / 2×" IsEnabled="False" Click="FastPreviewButton_Click" Margin="0,7,0,0" HorizontalContentAlignment="Center" />
                         <Grid Margin="0,15,0,8"><TextBlock Text="Binning" VerticalAlignment="Center" /><ComboBox x:Name="BinningCombo" Width="90" HorizontalAlignment="Right" IsEnabled="False" SelectionChanged="FormatSelection_Changed" /></Grid>
                         <Grid Margin="0,0,0,8"><TextBlock Text="Pixel format" VerticalAlignment="Center" /><ComboBox x:Name="PixelFormatCombo" Width="90" HorizontalAlignment="Right" IsEnabled="False" SelectionChanged="FormatSelection_Changed" /></Grid>
+                        <Grid Margin="0,9,0,5"><TextBlock Text="Preview quality" VerticalAlignment="Center" /><TextBlock x:Name="QualityValue" Text="75%" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="11" /></Grid>
+                        <Slider x:Name="QualitySlider" Minimum="40" Maximum="95" Value="75" IsEnabled="False" ValueChanged="QualitySlider_ValueChanged" />
                         <Separator Margin="0,18,0,14" Background="#273442" />
                         <Grid>
                             <TextBlock Text="Frame format" VerticalAlignment="Center" />

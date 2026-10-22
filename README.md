@@ -4,7 +4,7 @@ A Windows astronomy imaging app for ZWO ASI cameras, with camera control exposed
 
 ## Current status
 
-The preview includes a WPF desktop with continuous live preview, logarithmic exposure control, live gain, camera-reported binning, RGB24/RAW8 format selection, auto exposure, current-frame screenshots, still PNG capture, and SER video recording. RAW8 and binning reduce data volume for a faster preview; shorter exposure also raises the achievable frame rate. The desktop reports measured preview FPS and skipped UI refresh ticks. A connected ZWO ASI120MC has been verified at 640×480, RAW8, 2× binning, and 33 ms exposure (about 14 recorded frames/sec); a 260-frame Bayer SER file was opened successfully by ffprobe. Plate solving and astronomy catalog integrations remain future work.
+The preview includes a WPF desktop with continuous live JPEG preview and adjustable preview quality, logarithmic exposure, live gain, camera-reported binning, RGB24/RAW8 selection, auto exposure, current-frame screenshots, full PNG still capture, and SER video recording. RAW8, binning, and lower JPEG quality reduce preview data volume; shorter exposure also raises the achievable frame rate. The desktop reports measured preview FPS and skipped UI refresh ticks. A connected ZWO ASI120MC has been verified at 640×480, RAW8, 2× binning, and 33 ms exposure (about 14 recorded frames/sec); a 260-frame Bayer SER file was opened successfully by ffprobe. Plate solving and astronomy catalog integrations remain future work.
 
 ## Projects
 

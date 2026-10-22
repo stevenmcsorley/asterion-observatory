@@ -40,6 +40,8 @@ public sealed class CameraSession(ICameraBackend? backend) : ICameraSession
             var capabilities = await active.GetCapabilitiesAsync(cancellationToken);
             ValidateRange(requested.ExposureMilliseconds, capabilities.ExposureMilliseconds, "Exposure");
             ValidateRange(requested.Gain, capabilities.Gain, "Gain");
+            if (requested.PreviewQuality is < 40 or > 95)
+                throw new ArgumentOutOfRangeException(nameof(requested), "Preview JPEG quality must be between 40 and 95.");
             if (capabilities.BinningOptions is { } bins && !bins.Contains(requested.Bin))
                 throw new ArgumentOutOfRangeException(nameof(requested), $"Binning must be one of: {string.Join(", ", bins)}.");
             if (requested.PixelFormat is { } format && !capabilities.PixelFormats.Contains(format, StringComparer.OrdinalIgnoreCase))

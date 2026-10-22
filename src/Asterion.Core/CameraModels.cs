@@ -49,7 +49,8 @@ public sealed record CameraSettings(
     int? RoiWidth = null,
     int? RoiHeight = null,
     string? PixelFormat = null,
-    int Bin = 1);
+    int Bin = 1,
+    int PreviewQuality = 75);
 
 public sealed record CameraStatus(
     CameraConnectionState Connection,
