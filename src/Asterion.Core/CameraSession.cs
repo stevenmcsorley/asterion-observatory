@@ -40,6 +40,10 @@ public sealed class CameraSession(ICameraBackend? backend) : ICameraSession
             var capabilities = await active.GetCapabilitiesAsync(cancellationToken);
             ValidateRange(requested.ExposureMilliseconds, capabilities.ExposureMilliseconds, "Exposure");
             ValidateRange(requested.Gain, capabilities.Gain, "Gain");
+            if (capabilities.BinningOptions is { } bins && !bins.Contains(requested.Bin))
+                throw new ArgumentOutOfRangeException(nameof(requested), $"Binning must be one of: {string.Join(", ", bins)}.");
+            if (requested.PixelFormat is { } format && !capabilities.PixelFormats.Contains(format, StringComparer.OrdinalIgnoreCase))
+                throw new ArgumentOutOfRangeException(nameof(requested), $"Pixel format '{format}' is not supported by this camera.");
             ValidateRoi(requested, capabilities);
 
             var current = await active.GetSettingsAsync(cancellationToken);
@@ -71,8 +75,8 @@ public sealed class CameraSession(ICameraBackend? backend) : ICameraSession
             throw new ArgumentException("Set either a frame limit or a duration, not both.", nameof(request));
         if (request.FrameLimit is <= 0 or > 1000)
             throw new ArgumentOutOfRangeException(nameof(request), "Frame limit must be between 1 and 1000.");
-        if (request.Duration is { } duration && (duration <= TimeSpan.Zero || duration > TimeSpan.FromSeconds(30)))
-            throw new ArgumentOutOfRangeException(nameof(request), "Duration must be between 1 ms and 30 seconds.");
+        if (request.Duration is { } duration && (duration <= TimeSpan.Zero || duration > TimeSpan.FromHours(12)))
+            throw new ArgumentOutOfRangeException(nameof(request), "Duration must be between 1 ms and 12 hours.");
 
         var safeRequest = request with { TargetName = SanitizeTargetName(request.TargetName) ?? "capture" };
         return RequireBackend().CaptureSequenceAsync(safeRequest, cancellationToken);

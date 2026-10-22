@@ -107,6 +107,24 @@ public sealed class CameraTools(CameraPipeClient camera)
         }
     }
 
+    [McpServerTool, Description("Record a SER astronomy video sequence using the active camera settings. Choose exactly one of durationSeconds or frameLimit. The desktop app can stop the recording independently.")]
+    public Task<CaptureResult> RecordSerVideo(
+        [Description("Optional filename label for the recording.")] string? targetName,
+        [Description("Recording duration in seconds, up to 43200. Leave null to use frameLimit.")] double? durationSeconds,
+        [Description("Number of frames, 1 to 1000. Leave null to use durationSeconds.")] int? frameLimit,
+        CancellationToken cancellationToken)
+    {
+        if (durationSeconds is null && frameLimit is null)
+            throw new ArgumentException("Provide durationSeconds or frameLimit.");
+        var request = new CaptureRequest(targetName ?? "recording", "SER", frameLimit,
+            durationSeconds is { } seconds ? TimeSpan.FromSeconds(seconds) : null, null);
+        return camera.CallAsync<CaptureResult>("capture_sequence", request, cancellationToken);
+    }
+
+    [McpServerTool, Description("Stop the currently active SER video recording, saving all complete frames captured so far.")]
+    public Task<CameraStatus> StopRecording(CancellationToken cancellationToken) =>
+        camera.CallAsync<CameraStatus>("stop_capture", null, cancellationToken);
+
     private static IEnumerable<ContentBlock> FrameContent(ImageFrame frame, string description) =>
     [
         new TextContentBlock

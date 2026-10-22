@@ -83,7 +83,9 @@
                         <TextBlock Text="Camera preview" FontSize="20" FontWeight="SemiBold" Margin="0,5,0,0" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
-                        <Button x:Name="SnapshotButton" Style="{StaticResource ActionButton}" Content="Save snapshot" IsEnabled="False" Click="SnapshotButton_Click" Margin="0,0,8,0" />
+                        <Button x:Name="ScreenshotButton" Style="{StaticResource ActionButton}" Content="Save current frame" IsEnabled="False" Click="ScreenshotButton_Click" Margin="0,0,8,0" />
+                        <Button x:Name="SnapshotButton" Style="{StaticResource ActionButton}" Content="Capture image" IsEnabled="False" Click="SnapshotButton_Click" Margin="0,0,8,0" />
+                        <Button x:Name="RecordButton" Style="{StaticResource ActionButton}" Content="Record SER" IsEnabled="False" Click="RecordButton_Click" />
                     </StackPanel>
                 </Grid>
 
@@ -163,6 +165,10 @@
                         </Grid>
                         <Slider x:Name="GainSlider" Minimum="0" Maximum="100" Value="50" IsEnabled="False" ValueChanged="GainSlider_ValueChanged" />
                         <TextBlock x:Name="GainValue" Text="—" Foreground="{StaticResource MutedTextBrush}" FontSize="11" HorizontalAlignment="Right" />
+                        <Button x:Name="AutoExposureButton" Style="{StaticResource ActionButton}" Content="Auto exposure" IsEnabled="False" Click="AutoExposureButton_Click" Margin="0,12,0,0" HorizontalContentAlignment="Center" />
+                        <Button x:Name="FastPreviewButton" Style="{StaticResource ActionButton}" Content="Fast preview · 33 ms / RAW8 / 2×" IsEnabled="False" Click="FastPreviewButton_Click" Margin="0,7,0,0" HorizontalContentAlignment="Center" />
+                        <Grid Margin="0,15,0,8"><TextBlock Text="Binning" VerticalAlignment="Center" /><ComboBox x:Name="BinningCombo" Width="90" HorizontalAlignment="Right" IsEnabled="False" SelectionChanged="FormatSelection_Changed" /></Grid>
+                        <Grid Margin="0,0,0,8"><TextBlock Text="Pixel format" VerticalAlignment="Center" /><ComboBox x:Name="PixelFormatCombo" Width="90" HorizontalAlignment="Right" IsEnabled="False" SelectionChanged="FormatSelection_Changed" /></Grid>
                         <Separator Margin="0,18,0,14" Background="#273442" />
                         <Grid>
                             <TextBlock Text="Frame format" VerticalAlignment="Center" />

@@ -38,7 +38,8 @@ public sealed record CameraCapabilities(
     int MaximumWidth,
     int MaximumHeight,
     int MaximumRoiWidth,
-    int MaximumRoiHeight);
+    int MaximumRoiHeight,
+    IReadOnlyList<int>? BinningOptions = null);
 
 public sealed record CameraSettings(
     double ExposureMilliseconds,
@@ -47,7 +48,8 @@ public sealed record CameraSettings(
     int? RoiY = null,
     int? RoiWidth = null,
     int? RoiHeight = null,
-    string? PixelFormat = null);
+    string? PixelFormat = null,
+    int Bin = 1);
 
 public sealed record CameraStatus(
     CameraConnectionState Connection,

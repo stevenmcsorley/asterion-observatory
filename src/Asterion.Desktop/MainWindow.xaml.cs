@@ -17,6 +17,8 @@ public partial class MainWindow : Window
     private bool _connected;
     private CameraSettings? _currentSettings;
     private NumericRange? _exposureRange;
+    private bool _recording;
+    private ImageFrame? _lastFrame;
 
     public MainWindow(ICameraSession cameraSession)
     {
@@ -54,6 +56,9 @@ public partial class MainWindow : Window
             CameraModel.Text = $"{camera.Width} × {camera.Height} · ZWO ASI";
             var capabilities = await _cameraSession.GetCapabilitiesAsync(CancellationToken.None);
             SetExposureRange(capabilities.ExposureMilliseconds);
+            BinningCombo.ItemsSource = capabilities.BinningOptions ?? [1];
+            PixelFormatCombo.ItemsSource = capabilities.PixelFormats;
+            BinningCombo.IsEnabled = PixelFormatCombo.IsEnabled = true;
             GainSlider.Minimum = capabilities.Gain.Minimum;
             GainSlider.Maximum = Math.Max(capabilities.Gain.Maximum, capabilities.Gain.Minimum + 1);
             _currentSettings = await _cameraSession.SetSettingsAsync(_cameraSession.GetStatus().Settings!, CancellationToken.None);
@@ -63,6 +68,9 @@ public partial class MainWindow : Window
             ConnectionLabel.Foreground = System.Windows.Media.Brushes.LightGreen;
             ConnectButton.Content = "Disconnect camera";
             SnapshotButton.IsEnabled = true;
+            ScreenshotButton.IsEnabled = AutoExposureButton.IsEnabled = true;
+            FastPreviewButton.IsEnabled = true;
+            RecordButton.IsEnabled = true;
             ExposureSlider.IsEnabled = GainSlider.IsEnabled = true;
             StatusMessage.Text = $"Connected to {camera.Name}. Live preview is active.";
             PreviewPlaceholder.Visibility = Visibility.Collapsed;
@@ -103,6 +111,97 @@ public partial class MainWindow : Window
         finally { SnapshotButton.IsEnabled = _connected; }
     }
 
+    private async void ScreenshotButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_lastFrame is null) return;
+        try
+        {
+            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "Asterion Observatory", "Captures");
+            Directory.CreateDirectory(folder);
+            var path = Path.Combine(folder, $"screen_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
+            await File.WriteAllBytesAsync(path, _lastFrame.Data);
+            StatusMessage.Text = $"Current frame saved · {path}";
+        }
+        catch (Exception ex) { StatusMessage.Text = $"Screenshot failed: {ex.Message}"; }
+    }
+
+    private async void AutoExposureButton_Click(object sender, RoutedEventArgs e)
+    {
+        AutoExposureButton.IsEnabled = false;
+        try
+        {
+            var frame = await _cameraSession.GetPreviewFrameAsync(CancellationToken.None);
+            if (frame.Metrics is not { } metrics || _currentSettings is null) return;
+            var factor = metrics.ClippedPixelFraction > 0.03 || metrics.MeanLuminance > 100 ? 0.5
+                : metrics.MeanLuminance < 1 ? 4.0 : metrics.MeanLuminance < 8 ? 2.5
+                : metrics.MeanLuminance < 25 ? 1.5 : 1.0;
+            var proposed = _currentSettings with { ExposureMilliseconds = Math.Clamp(_currentSettings.ExposureMilliseconds * factor, _exposureRange?.Minimum ?? 0.001, Math.Min(_exposureRange?.Maximum ?? 5000, 5000)) };
+            _currentSettings = await _cameraSession.SetSettingsAsync(proposed, CancellationToken.None);
+            ShowSettings(_currentSettings);
+            StatusMessage.Text = "Auto exposure applied from live frame brightness. Adjust exposure or gain manually for fine control.";
+        }
+        catch (Exception ex) { StatusMessage.Text = $"Auto exposure failed: {ex.Message}"; }
+        finally { AutoExposureButton.IsEnabled = _connected; }
+    }
+
+    private async void FastPreviewButton_Click(object sender, RoutedEventArgs e)
+    {
+        FastPreviewButton.IsEnabled = false;
+        try
+        {
+            var capabilities = await _cameraSession.GetCapabilitiesAsync(CancellationToken.None);
+            var bin = capabilities.BinningOptions?.Contains(2) == true ? 2 : 1;
+            var exposure = Math.Clamp(33d, capabilities.ExposureMilliseconds.Minimum, capabilities.ExposureMilliseconds.Maximum);
+            var proposed = (_currentSettings ?? new CameraSettings(exposure, capabilities.Gain.Minimum)) with
+            {
+                ExposureMilliseconds = exposure,
+                Bin = bin,
+                PixelFormat = capabilities.PixelFormats.Contains("RAW8") ? "RAW8" : capabilities.PixelFormats[0]
+            };
+            _currentSettings = await _cameraSession.SetSettingsAsync(proposed, CancellationToken.None);
+            ShowSettings(_currentSettings);
+            StatusMessage.Text = "Fast preview applied. The shorter exposure and lighter data format favor frame rate over faint detail.";
+        }
+        catch (Exception ex) { StatusMessage.Text = $"Fast preview failed: {ex.Message}"; }
+        finally { FastPreviewButton.IsEnabled = _connected; }
+    }
+
+    private async void RecordButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_connected) return;
+        if (_recording)
+        {
+            RecordButton.IsEnabled = false;
+            await _cameraSession.StopCaptureAsync(CancellationToken.None);
+            return;
+        }
+        _recording = true;
+        RecordButton.Content = "Stop recording";
+        ExposureSlider.IsEnabled = GainSlider.IsEnabled = BinningCombo.IsEnabled = PixelFormatCombo.IsEnabled = false;
+        SnapshotButton.IsEnabled = ScreenshotButton.IsEnabled = AutoExposureButton.IsEnabled = FastPreviewButton.IsEnabled = false;
+        StatusMessage.Text = "Recording SER video… click Stop recording to finish.";
+        try
+        {
+            var result = await _cameraSession.CaptureSequenceAsync(new CaptureRequest("observation", "SER", null, TimeSpan.FromHours(12), null), CancellationToken.None);
+            StatusMessage.Text = $"Video saved · {result.FramesCaptured} frames · {result.FilePath}";
+        }
+        catch (Exception ex) { StatusMessage.Text = $"Recording failed: {ex.Message}"; }
+        finally
+        {
+            _recording = false; RecordButton.Content = "Record SER"; RecordButton.IsEnabled = _connected;
+            ExposureSlider.IsEnabled = GainSlider.IsEnabled = BinningCombo.IsEnabled = PixelFormatCombo.IsEnabled = _connected;
+            SnapshotButton.IsEnabled = ScreenshotButton.IsEnabled = AutoExposureButton.IsEnabled = FastPreviewButton.IsEnabled = _connected;
+        }
+    }
+
+    private void FormatSelection_Changed(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_updatingControls || !_connected || _currentSettings is null) return;
+        var format = PixelFormatCombo.SelectedItem?.ToString() ?? _currentSettings.PixelFormat;
+        _currentSettings = _currentSettings with { Bin = BinningCombo.SelectedItem is int bin ? bin : 1, PixelFormat = format };
+        ScheduleSettings();
+    }
+
     private void ExposureSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (_updatingControls || ExposureValue is null) return;
@@ -128,7 +227,7 @@ public partial class MainWindow : Window
         if (!_connected || _currentSettings is null) return;
         try
         {
-            var requested = _currentSettings with { ExposureMilliseconds = ExposureFromSlider(ExposureSlider.Value), Gain = GainSlider.Value };
+            var requested = _currentSettings with { ExposureMilliseconds = ExposureFromSlider(ExposureSlider.Value), Gain = GainSlider.Value, Bin = BinningCombo.SelectedItem is int bin ? bin : 1, PixelFormat = PixelFormatCombo.SelectedItem?.ToString() ?? "RGB24" };
             _currentSettings = await _cameraSession.SetSettingsAsync(requested, CancellationToken.None);
             StatusMessage.Text = "Acquisition settings applied.";
         }
@@ -148,6 +247,9 @@ public partial class MainWindow : Window
                 _currentSettings = status.Settings;
                 var capabilities = await _cameraSession.GetCapabilitiesAsync(CancellationToken.None);
                 SetExposureRange(capabilities.ExposureMilliseconds);
+                BinningCombo.ItemsSource = capabilities.BinningOptions ?? [1];
+                PixelFormatCombo.ItemsSource = capabilities.PixelFormats;
+                BinningCombo.IsEnabled = PixelFormatCombo.IsEnabled = true;
                 GainSlider.Minimum = capabilities.Gain.Minimum;
                 GainSlider.Maximum = Math.Max(capabilities.Gain.Maximum, capabilities.Gain.Minimum + 1);
                 if (_currentSettings is not null) ShowSettings(_currentSettings);
@@ -157,6 +259,9 @@ public partial class MainWindow : Window
             ConnectionLabel.Foreground = System.Windows.Media.Brushes.LightGreen;
             ConnectButton.Content = "Disconnect camera";
             SnapshotButton.IsEnabled = true;
+            ScreenshotButton.IsEnabled = AutoExposureButton.IsEnabled = true;
+            FastPreviewButton.IsEnabled = true;
+            RecordButton.IsEnabled = true;
             ExposureSlider.IsEnabled = GainSlider.IsEnabled = true;
             PreviewPlaceholder.Visibility = Visibility.Collapsed;
             PreviewImage.Visibility = Visibility.Visible;
@@ -191,6 +296,8 @@ public partial class MainWindow : Window
         {
             ExposureSlider.Value = ExposureToSlider(settings.ExposureMilliseconds);
             GainSlider.Value = Math.Clamp(settings.Gain, GainSlider.Minimum, GainSlider.Maximum);
+            BinningCombo.SelectedItem = settings.Bin;
+            PixelFormatCombo.SelectedItem = settings.PixelFormat;
             ExposureValue.Text = $"{settings.ExposureMilliseconds:0.###} ms";
             GainValue.Text = $"{settings.Gain:0} gain";
         }
@@ -227,6 +334,7 @@ public partial class MainWindow : Window
         using var stream = new MemoryStream(frame.Data);
         bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.StreamSource = stream; bitmap.EndInit(); bitmap.Freeze();
         PreviewImage.Source = bitmap;
+        _lastFrame = frame;
         PreviewImage.Visibility = Visibility.Visible;
         PreviewPlaceholder.Visibility = Visibility.Collapsed;
         FrameInfo.Text = frame.Metrics is { } m
@@ -241,6 +349,10 @@ public partial class MainWindow : Window
         ConnectionLabel.Foreground = System.Windows.Media.Brushes.DarkGray;
         ConnectButton.Content = "Find and connect camera";
         SnapshotButton.IsEnabled = false;
+        ScreenshotButton.IsEnabled = AutoExposureButton.IsEnabled = false;
+        FastPreviewButton.IsEnabled = false;
+        RecordButton.IsEnabled = false;
+        BinningCombo.IsEnabled = PixelFormatCombo.IsEnabled = false;
         ExposureSlider.IsEnabled = GainSlider.IsEnabled = false;
         PreviewImage.Source = null;
         PreviewImage.Visibility = Visibility.Collapsed;
