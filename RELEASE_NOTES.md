@@ -22,6 +22,6 @@ Snapshots are saved to `Pictures/Asterion Observatory/Captures`.
 
 ## Preview status
 
-This release has passed the Windows x64 Release build in GitHub Actions. A connected ASI120MC is detected through Windows USB. This preview includes camera connection fixes; live image capture remains under validation. Video recording, plate solving, catalog-based object identification, and mount/focuser integrations are not included. Bright-point and focus metrics are image heuristics; they do not identify astronomical objects. AI image analysis is provided by the connected MCP client, not an embedded model.
+This release has passed the Windows x64 Release build in GitHub Actions. A connected ASI120MC is detected through Windows USB. Live 1280×960 preview and saved PNG capture were verified with an attached ZWO ASI120MC. Video recording, plate solving, catalog-based object identification, and mount/focuser integrations are not included. Bright-point and focus metrics are image heuristics; they do not identify astronomical objects. AI image analysis is provided by the connected MCP client, not an embedded model.
 
 Camera settings are sent to the camera only when an operator or MCP client requests a change. The suggestion tool only returns a proposal.

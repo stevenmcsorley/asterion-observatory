@@ -57,7 +57,7 @@ public sealed class ZwoAsiCameraBackend : ICameraBackend
     public async Task DisconnectAsync(CancellationToken ct) { await gate.WaitAsync(ct); try { if(camera is { } c) { if(capturing){Native.ASIStopVideoCapture(c.CameraID);capturing=false;} Native.ASICloseCamera(c.CameraID); } connected=false; camera=null; capabilities=null; connection=CameraConnectionState.Disconnected; } finally { gate.Release(); } }
     public Task<CameraCapabilities> GetCapabilitiesAsync(CancellationToken ct) => Task.FromResult(capabilities ?? throw new InvalidOperationException("Connect a camera first."));
     public Task<CameraSettings> GetSettingsAsync(CancellationToken ct) => Task.FromResult(ReadSettings());
-    public async Task SetSettingsAsync(CameraSettings value,CancellationToken ct) { await gate.WaitAsync(ct); try { var c=RequireCamera(); if(capturing){Check(Native.ASIStopVideoCapture(c.CameraID));capturing=false;} Check(Native.ASISetControlValue(c.CameraID,Exposure,(int)Math.Round(value.ExposureMilliseconds*1000),0)); Check(Native.ASISetControlValue(c.CameraID,Gain,(int)Math.Round(value.Gain),0)); settings=value; StartVideo(); } finally { gate.Release(); } }
+    public async Task SetSettingsAsync(CameraSettings value,CancellationToken ct) { await gate.WaitAsync(ct); try { var c=RequireCamera(); Check(Native.ASISetControlValue(c.CameraID,Exposure,(int)Math.Round(value.ExposureMilliseconds*1000),0)); Check(Native.ASISetControlValue(c.CameraID,Gain,(int)Math.Round(value.Gain),0)); settings=value; } finally { gate.Release(); } }
     public Task<ImageFrame> GetPreviewFrameAsync(CancellationToken ct) => GrabAsync(ct);
     public async Task<ImageFrame> CaptureSnapshotAsync(string? targetName,CancellationToken ct)
     {
